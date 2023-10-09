@@ -126,8 +126,8 @@ function App() {
                     <span>Compressed:</span>
                     <span>
                       {(
-                        (encoded.length * 100) /
-                        encodingInput.length
+                        100 -
+                        (encoded.length * 100) / encodingInput.length
                       ).toPrecision(4)}
                       %
                     </span>
