@@ -9,11 +9,7 @@ export const serialize = (
       .replaceAll("@", "@@")
       .replaceAll(";", ";;")
       .replaceAll(":", "::");
-    const value = v
-      .replaceAll("@", "@@")
-      .replaceAll(";", ";;")
-      .replaceAll(":", "::");
-    serializedCodes.push(`${key}:${value}`);
+    serializedCodes.push(`${key}:${v}`);
   });
   return `${padding}@${serializedCodes.join(";")}@${encoded}`;
 };
@@ -30,7 +26,7 @@ export const deserialize = (data: string) => {
     if (data[curi + 1] !== "@") {
       codesDividerIndex = curi;
     } else {
-      previ = curi;
+      previ = curi + 1;
     }
   }
   const codesString = data.substring(
@@ -45,13 +41,17 @@ export const deserialize = (data: string) => {
   for (let i = 0; i < codesString.length; i++) {
     const char = codesString[i];
 
-    if ((char === ":" || char === ";") && i + 1 !== codesString.length) {
+    if (
+      (char === ":" || char === ";" || char === "@") &&
+      i + 1 !== codesString.length
+    ) {
       const nextChar = codesString[i + 1];
-      if (
-        (char === ":" && nextChar === ":") ||
-        (char === ";" && nextChar === ";")
-      ) {
+      if (char === nextChar && curKey.length === 0) {
         curString += char;
+        if (i + 2 === codesString.length) {
+          if (curKey.length === 0) throw new Error("Not valid encoded file");
+          codes.set(curKey, curString);
+        }
         i++;
         continue;
       }
