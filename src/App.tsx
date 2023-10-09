@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import useEncode from "./hooks/useEncode";
 import useDecode from "./hooks/useDecode";
 import {
@@ -15,28 +15,26 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
-  Textarea,
 } from "@nextui-org/react";
+import { deserialize, serialize } from "./misc/serializer";
+import { download } from "./misc/download";
 
 function App() {
+  const [encodeFileName, setEncodeFileName] = useState("");
   const [encodingInput, setEncoding] = useState<string>("");
-  const [encodedInput, setEncoded] = useState<string[]>();
-  const [encodedCodes, setCodes] = useState<Map<string, string>>();
+  const [decodeFileName, setDecodeFileName] = useState("");
+  const [decodingInput, setDecoding] = useState<string>("");
   const { encode, encoded, codes, freqs, isEncoding } = useEncode();
   const { decode, decoded, isDecoding } = useDecode();
 
-  useEffect(() => {
-    if (!encoded || !codes) return;
-    setEncoded(encoded);
-    setCodes(codes);
-  }, [encoded, codes]);
-
-  const copyText = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  const onUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setNameFunc: (name: string) => void,
+    setContent: (content: string) => void
+  ) => {
     if (!window.FileReader) return;
+    const file = e.target.files![0];
+    setNameFunc(file.name);
     const reader = new FileReader();
     reader.onload = (evt) => {
       if (evt.target?.readyState != 2) return;
@@ -45,17 +43,73 @@ function App() {
         return;
       }
       const fileContent = evt.target.result as string;
-      if (typeof fileContent !== "string") {
-        alert("file not string");
-        return;
-      }
-      setEncoding(fileContent);
+      setContent(fileContent);
     };
-
-    reader.readAsText(e.target.files![0]);
+    reader.readAsText(file);
   };
 
-  const downloadFile = () => {};
+  const downloadEncoded = () => {
+    if (!encoded || !codes) return;
+    const padding = (8 - (encoded.join("").length % 8)) % 8;
+    const binaryString =
+      encoded.join("") +
+      Array(padding)
+        .map(() => "0")
+        .join("");
+
+    let encodedData = "";
+    for (let i = 0; i < binaryString.length; ) {
+      let cur = 0;
+      for (let j = 0; j < 8; j++, i++) {
+        cur *= 2;
+        cur +=
+          (binaryString[i] as unknown as number) - ("0" as unknown as number);
+      }
+      encodedData += String.fromCharCode(cur);
+    }
+
+    const fileString = serialize(codes, padding, encodedData);
+    const fileExtension = encodeFileName.substring(
+      encodeFileName.lastIndexOf(".")
+    );
+    download(
+      encodeFileName.substring(0, encodeFileName.lastIndexOf(".")) +
+        "_mini" +
+        fileExtension,
+      fileString
+    );
+  };
+
+  const decodeFile = () => {
+    if (!decodingInput) return;
+    const { codes, encoded, padding } = deserialize(decodingInput);
+    let decodedBinaryString = "";
+    for (let i = 0; i < encoded.length; i++) {
+      const currNum = encoded.charCodeAt(i);
+      let currBinary = "";
+      for (let j = 7; j >= 0; j--) {
+        const foo = currNum >> j;
+        currBinary += foo & 1;
+      }
+      decodedBinaryString += currBinary;
+    }
+    if (padding !== 0)
+      decodedBinaryString = decodedBinaryString.slice(0, -padding);
+    decode(decodedBinaryString, codes);
+  };
+
+  const downloadDecoded = () => {
+    if (!decoded) return;
+    const fileExtension = decodeFileName.substring(
+      decodeFileName.lastIndexOf(".")
+    );
+    download(
+      decodeFileName.substring(0, decodeFileName.lastIndexOf(".")) +
+        "decoded" +
+        fileExtension,
+      decoded
+    );
+  };
 
   const codeRows = useMemo(() => {
     const nodes: React.JSX.Element[] = [];
@@ -79,14 +133,10 @@ function App() {
     <div className="min-h-screen w-full flex flex-col gap-5 justify-around items-center p-5">
       <Card className="min-w-[400px] max-w-full">
         <CardBody className="flex flex-col gap-5">
-          {/* <Textarea
-            label="Text for encode"
-            type="text"
-            onChange={(e) => setEncoding(e.target.value)}
-            value={encodingInput}
-            aria-label="Text for encode"
-          /> */}
-          <Input type="file" onChange={onUpload} />
+          <Input
+            type="file"
+            onChange={(e) => onUpload(e, setEncodeFileName, setEncoding)}
+          />
           <Button
             onClick={() => encode(encodingInput)}
             color={encodingInput ? "primary" : "default"}
@@ -102,15 +152,8 @@ function App() {
             <CardFooter>
               {isEncoding && <Spinner />}
               {encoded && (
-                <div className="flex flex-col gap-1 text-center w-full">
-                  <span>Encoded result:</span>
-                  {/* <p
-                    className="max-w-lg cursor-pointer break-words"
-                    onClick={() => copyText(encoded.join(""))}
-                  >
-                    {encoded}
-                  </p> */}
-                  <Button onClick={downloadFile}>Download result</Button>
+                <div className="text-center w-full">
+                  <Button onClick={downloadEncoded}>Download result</Button>
                 </div>
               )}
             </CardFooter>
@@ -131,11 +174,15 @@ function App() {
       </Table>
 
       <Card className="min-w-[400px] max-w-full">
-        <CardBody>
+        <CardBody className="flex flex-col gap-5">
+          <Input
+            type="file"
+            onChange={(e) => onUpload(e, setDecodeFileName, setDecoding)}
+          />
           <Button
-            onClick={() => decode(encodedInput!, encodedCodes!)}
-            disabled={!encodedInput || !encodedCodes}
-            color={encodedInput && encodedCodes ? "primary" : "default"}
+            onClick={decodeFile}
+            color={decodingInput ? "primary" : "default"}
+            disabled={!decodingInput}
             aria-label="Decode button"
           >
             Decode
@@ -147,16 +194,8 @@ function App() {
             <CardFooter>
               {isDecoding && <Spinner />}
               {decoded && (
-                <div className="flex flex-col gap-1 text-center w-full">
-                  <span>Decoded result:</span>
-                  <Textarea
-                    readOnly
-                    value={decoded}
-                    onChange={() => {}}
-                    className="max-w-lg break-words"
-                    classNames={{ input: "cursor-pointer" }}
-                    onClick={() => copyText(decoded)}
-                  />
+                <div className="text-center w-full">
+                  <Button onClick={downloadDecoded}>Download result</Button>
                 </div>
               )}
             </CardFooter>

@@ -16,7 +16,24 @@ export function decode(
   const result = ["", ...encodedText].reduce(
     (pre, cur) => pre + reversedCodes.get(cur)
   );
+  return result;
+}
 
+export function decodeString(
+  encodedText: string,
+  codes: Map<string, string>
+): string {
+  const reversedCodes = reverseMap(codes);
+  let result = "";
+  let currentBinary = "";
+  for (const item of encodedText) {
+    currentBinary += item;
+    if (reversedCodes.has(currentBinary)) {
+      const decodedChar = reversedCodes.get(currentBinary);
+      result += decodedChar;
+      currentBinary = "";
+    }
+  }
   return result;
 }
 
