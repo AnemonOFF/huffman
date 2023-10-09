@@ -5,13 +5,10 @@ export const serialize = (
 ) => {
   const serializedCodes: string[] = [];
   codes.forEach((v, k) => {
-    const key = k
-      .replaceAll("@", "@@")
-      .replaceAll(";", ";;")
-      .replaceAll(":", "::");
+    const key = k.replaceAll("@", "@@").replaceAll(":", "::");
     serializedCodes.push(`${key}:${v}`);
   });
-  return `${padding}@${serializedCodes.join(";")}@${encoded}`;
+  return `${padding}@${serializedCodes.join(":")}@${encoded}`;
 };
 
 export const deserialize = (data: string) => {
@@ -41,10 +38,7 @@ export const deserialize = (data: string) => {
   for (let i = 0; i < codesString.length; i++) {
     const char = codesString[i];
 
-    if (
-      (char === ":" || char === ";" || char === "@") &&
-      i + 1 !== codesString.length
-    ) {
+    if ((char === ":" || char === "@") && i + 1 !== codesString.length) {
       const nextChar = codesString[i + 1];
       if (char === nextChar && curKey.length === 0) {
         curString += char;
@@ -58,14 +52,13 @@ export const deserialize = (data: string) => {
     }
 
     if (char === ":") {
+      if (curKey.length > 0) {
+        codes.set(curKey, curString);
+        curKey = "";
+        curString = "";
+        continue;
+      }
       curKey = curString;
-      curString = "";
-      continue;
-    }
-
-    if (char === ";") {
-      codes.set(curKey, curString);
-      curKey = "";
       curString = "";
       continue;
     }
