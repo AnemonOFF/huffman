@@ -7,6 +7,7 @@ import {
   CardBody,
   CardFooter,
   Divider,
+  Input,
   Spinner,
   Table,
   TableBody,
@@ -28,11 +29,33 @@ function App() {
     if (!encoded || !codes) return;
     setEncoded(encoded);
     setCodes(codes);
-  }, [encoded, codes, freqs]);
+  }, [encoded, codes]);
 
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text);
   };
+
+  const onUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!window.FileReader) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      if (evt.target?.readyState != 2) return;
+      if (evt.target.error) {
+        alert("Error while reading file");
+        return;
+      }
+      const fileContent = evt.target.result as string;
+      if (typeof fileContent !== "string") {
+        alert("file not string");
+        return;
+      }
+      setEncoding(fileContent);
+    };
+
+    reader.readAsText(e.target.files![0]);
+  };
+
+  const downloadFile = () => {};
 
   const codeRows = useMemo(() => {
     const nodes: React.JSX.Element[] = [];
@@ -56,13 +79,14 @@ function App() {
     <div className="min-h-screen w-full flex flex-col gap-5 justify-around items-center p-5">
       <Card className="min-w-[400px] max-w-full">
         <CardBody className="flex flex-col gap-5">
-          <Textarea
+          {/* <Textarea
             label="Text for encode"
             type="text"
             onChange={(e) => setEncoding(e.target.value)}
             value={encodingInput}
             aria-label="Text for encode"
-          />
+          /> */}
+          <Input type="file" onChange={onUpload} />
           <Button
             onClick={() => encode(encodingInput)}
             color={encodingInput ? "primary" : "default"}
@@ -80,12 +104,13 @@ function App() {
               {encoded && (
                 <div className="flex flex-col gap-1 text-center w-full">
                   <span>Encoded result:</span>
-                  <p
+                  {/* <p
                     className="max-w-lg cursor-pointer break-words"
                     onClick={() => copyText(encoded.join(""))}
                   >
                     {encoded}
-                  </p>
+                  </p> */}
+                  <Button onClick={downloadFile}>Download result</Button>
                 </div>
               )}
             </CardFooter>
