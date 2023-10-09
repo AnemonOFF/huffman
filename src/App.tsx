@@ -16,7 +16,6 @@ import {
   TableHeader,
   TableRow,
 } from "@nextui-org/react";
-import { deserialize, serialize } from "./misc/serializer";
 import { download } from "./misc/download";
 
 function App() {
@@ -34,6 +33,7 @@ function App() {
   ) => {
     if (!window.FileReader) return;
     const file = e.target.files![0];
+    if (!file) return;
     setNameFunc(file.name);
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -50,25 +50,6 @@ function App() {
 
   const downloadEncoded = () => {
     if (!encoded || !codes) return;
-    const padding = (8 - (encoded.join("").length % 8)) % 8;
-    const binaryString =
-      encoded.join("") +
-      Array(padding)
-        .map(() => "0")
-        .join("");
-
-    let encodedData = "";
-    for (let i = 0; i < binaryString.length; ) {
-      let cur = 0;
-      for (let j = 0; j < 8; j++, i++) {
-        cur *= 2;
-        cur +=
-          (binaryString[i] as unknown as number) - ("0" as unknown as number);
-      }
-      encodedData += String.fromCharCode(cur);
-    }
-
-    const fileString = serialize(codes, padding, encodedData);
     const fileExtension = encodeFileName.substring(
       encodeFileName.lastIndexOf(".")
     );
@@ -76,26 +57,13 @@ function App() {
       encodeFileName.substring(0, encodeFileName.lastIndexOf(".")) +
         "_mini" +
         fileExtension,
-      fileString
+      encoded
     );
   };
 
   const decodeFile = () => {
     if (!decodingInput) return;
-    const { codes, encoded, padding } = deserialize(decodingInput);
-    let decodedBinaryString = "";
-    for (let i = 0; i < encoded.length; i++) {
-      const currNum = encoded.charCodeAt(i);
-      let currBinary = "";
-      for (let j = 7; j >= 0; j--) {
-        const foo = currNum >> j;
-        currBinary += foo & 1;
-      }
-      decodedBinaryString += currBinary;
-    }
-    if (padding !== 0)
-      decodedBinaryString = decodedBinaryString.slice(0, -padding);
-    decode(decodedBinaryString, codes);
+    decode(decodingInput);
   };
 
   const downloadDecoded = () => {
@@ -105,7 +73,7 @@ function App() {
     );
     download(
       decodeFileName.substring(0, decodeFileName.lastIndexOf(".")) +
-        "decoded" +
+        "_decoded" +
         fileExtension,
       decoded
     );
@@ -152,8 +120,18 @@ function App() {
             <CardFooter>
               {isEncoding && <Spinner />}
               {encoded && (
-                <div className="text-center w-full">
+                <div className="flex flex-col gap-2 text-center w-full">
                   <Button onClick={downloadEncoded}>Download result</Button>
+                  <div className="flex gap-2">
+                    <span>Compressed:</span>
+                    <span>
+                      {(
+                        (encoded.length * 100) /
+                        encodingInput.length
+                      ).toPrecision(4)}
+                      %
+                    </span>
+                  </div>
                 </div>
               )}
             </CardFooter>
